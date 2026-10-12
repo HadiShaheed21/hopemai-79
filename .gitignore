@@ -1,0 +1,12 @@
+node_modules
+.next
+.env
+.env.local
+.env.*.local
+dist-test
+.pgtest/
+coverage/
+*.tsbuildinfo
+.pgtest/
+coverage/
+*.tsbuildinfo

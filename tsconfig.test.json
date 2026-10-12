@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["es2020"],
+    "types": ["node"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "outDir": "dist-test",
+    "rootDir": ".",
+    "noEmit": false,
+    "sourceMap": false,
+    "declaration": false
+  },
+  "include": [
+    "tests/**/*.ts",
+    "lib/ai/**/*.ts",
+    "lib/payments/**/*.ts",
+    "lib/supabase/**/*.ts",
+    "lib/journey.ts",
+    "app/api/**/*.ts",
+    "types/**/*.ts"
+  ]
+}
