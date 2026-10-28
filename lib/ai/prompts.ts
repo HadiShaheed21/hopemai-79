@@ -149,19 +149,33 @@ export const SPECS: Record<number, DaySpec> = {
       { key: 'myResetInOneSentence', label: 'My reset in one sentence' },
     ],
     listKeys: [],
-    instruction: `Day 7 of 7 - INTEGRATE. Build "MY MIRAAI RESET REPORT" from their ACTUAL six-day journey. This must feel like it belongs only to them. Use the journey history provided; do NOT write a generic motivational summary and do NOT invent anything they did not share.
+    instruction: `Day 7 of 7 - INTEGRATE. Build "MY MIRAAI RESET REPORT" from their ACTUAL six-day journey. This must feel like it was written for them by a thoughtful, compassionate observer who read every answer they shared. Do not write a generic motivational summary, do not diagnose, and do not invent anything they did not share.
 
-Separate FACTS (things they said/chose) from AI REFLECTION (your observation). For facts use "You mentioned...", "You chose...", "You wrote...", "You noticed...". Only say "You are..." if quoting their exact words.
+Analysis requirement. Before you write, read the entire seven-day journey provided above. Identify: (1) the main emotional concerns they expressed; (2) repeated thoughts, situations, or difficulties; (3) possible triggers supported by their responses; (4) how their earlier responses differ from their later ones; (5) what has stayed consistent; (6) what remains unresolved; (7) their existing coping strategies and personal strengths; (8) any gap between what they say they need and what they describe experiencing. Use these findings to write the fields below, not a generic summary.
+Voice: write in the third person ("they", "the person", "their"). Do not address the reader directly anywhere except the short closing sign-off at the end. Do not use "You said", "You feel", "You need to", "Everything will be okay", "Stay positive and keep going", or similar direct-address phrases. Refer to their words as "they mentioned", "they chose", "they wrote", "they noticed".
+Facts and reflection: keep the two separate. Facts use "they mentioned / they chose / they wrote / they noticed". Observations use "appears to", "may suggest", "one possible reading", "the pattern that stands out". Never present a guess as a fact. If the available information is insufficient, say so plainly rather than filling gaps with generic advice.
+Structure the report as ONE connected essay with these sections, not nine summaries:
 
-- whatIBroughtWithMe: the situations and thoughts they explicitly shared across the days, in their words. If a day is thin, say so rather than filling it.
-- whatINoticed: the important explicit emotions, situations and experiences they named.
-- whatMyMindWasDoing: ONLY relationships between situation, feeling and thought that their answers clearly support (e.g. "You noticed a moment, a feeling, and the meaning your mind attached to it."). If the data does not support a pattern, say you do not have enough to draw one. Never infer anxiety, depression or hidden traits.
-- whatWasInMyHands: summarise THEIR OWN control sorting from Day 3 — what they put in "I can act on this", "outside my control", "not now". Do not re-sort or add.
-- whatITried: list the actual actions/pauses from Days 4-6 they recorded (including a skip, honestly).
-- whatINoticedFromTrying: use their ACTUAL feedback from Day 5 / their chosen Day 4 move. Never invent improvement. "No real change" stays "no real change".
-- myOwnWords: 1-2 of their most meaningful statements, quoted back.
-- whatIWantToCarryForward: the final direction/reminder they selected, in their words.
-- myResetInOneSentence: ONE concise sentence summarising THEIR journey, grounded entirely in what they shared (example of style only: "This week I noticed that when several things compete for my attention, choosing one small next step gives me something concrete to work with."). Must be generated from their actual path, not this example.`,
+- The emotional landscape: the most prominent feelings or concerns they named, and how they described them. Name distinctions between different concerns when their answers support them.
+- Patterns across seven days: what appeared at the start, what recurred, what shifted by the end. Use specific paraphrased examples with the day they appeared.
+- What made things harder: situations connected to what they reported, and where the information is incomplete. No unsupported assumptions.
+- Strengths, resources and needs: what they handled, what was in their hands, and what they appear to need but have not said out loud. Where they describe needing something they did not or could not do, note that as a possible gap to explore.
+- Closing: the most important insight the week supported, one gentle reflective question, and a reminder that this is not a diagnosis and not a substitute for professional support.
+Each section should be a few sentences long, in plain, warm, contemporary English. Each field below is a short string; use the space it gives without padding.
+
+- whatIBroughtWithMe: 2-3 sentences in their words, covering the week. If a day is thin, say so rather than filling it.
+- whatINoticed: 3-5 sentences giving their important explicit emotions, situations and experiences, plus the main theme and, where the responses support it, the single most significant recurring pattern. Include the possible triggers that appear to shape their experience.
+- whatMyMindWasDoing: 3-5 sentences on how their understanding shifted from their Day 1 answers to their later ones, what stayed the same, and what remains unresolved. If there is no clear evidence of change, say so.
+- whatWasInMyHands: 1-3 sentences on their own Day 3 control sorting, plus their existing coping strategies, personal strengths, and any apparent gap between what they say they need and what they described actually experiencing.
+- whatITried: their actual actions and pauses from Days 4-6, including any skip, honestly.
+- whatINoticedFromTrying: their real feedback from Day 5 / their chosen Day 4 move. Never invent improvement. "No real change" stays "no real change".
+- myOwnWords: 1-2 of their most meaningful statements, quoted back in their words.
+- whatIWantToCarryForward: the final direction or reminder they selected, in their words, followed by "What could help going forward" - 3 to 5 priorities, each in its own short paragraph labelled Priority 1, Priority 2, etc. For each priority give: Area to explore; Why it matters; Suggested adjustment; First small step; and a Reflection question. Order them by relevance, not by number. If the available information does not support a priority, do not invent one. IMPORTANT: this priority block is REQUIRED and must not be omitted. Use this exact format for each priority: "Priority N - Area to explore: ... | Why it matters: ... | Suggested adjustment: ... | First small step: ... | Reflection question: ..." Example format (illustrative only, do not copy): "Priority 1 - Area to explore: competing demands | Why it matters: several deadlines arrived at once | Suggested adjustment: postpone one responsibility | First small step: choose one task to set aside for a day | Reflection question: which demand felt most urgent?" IMPORTANT: Complete ALL FIVE elements of each priority before starting the next priority. Do not leave a priority unfinished. Do not truncate. Each priority's text may be concise. The field may exceed 900 characters if needed to complete all priorities.
+- myResetInOneSentence: ONE concise sentence summarising their journey, grounded entirely in what they shared (example of style only: "This week I noticed that when several things compete for my attention, choosing one small next step gives me something concrete to work with."). Must be generated from their actual path, not this example.
+Closing paragraph: a short, compassionate third-person reflection that connects what the week suggests - the main themes, the most significant recurring pattern, and the most useful next step - without inventing facts. This is the AI-generated narrative that ties the observations together. If the week was limited, say what was learned and what remains uncertain rather than claiming progress or change that the responses do not support.
+
+Final check before returning the JSON: the "whatIWantToCarryForward" field MUST include the "What could help going forward" priority block with 3 to 5 priorities in the exact "Priority N - Area to explore: ... | Why it matters: ... | Suggested adjustment: ... | First small step: ... | Reflection question: ..." format. Do not return a short summary instead of this block.
+`,
   },
 }
 
@@ -184,22 +198,16 @@ const LANGUAGE_LINE: Record<string, string> = {
   ml: 'Write your reply in natural Malayalam, mirroring the person\'s own register (Manglish is fine if that is how they wrote).',
 }
 
-/** System prompt = the shared MIRAAI identity + this day's card spec. */
 export function buildSystemPrompt(spec: DaySpec, language: string): string {
-  const fieldList = spec.fields.map(f => `- ${f.key}: ${f.label}`).join('\n')
+  const fieldList = spec.fields.map(f => '- ' + f.key + ': ' + f.label).join('\n')
   const listNote = spec.listKeys.length
-    ? `\nThese fields must be JSON arrays of short strings (one item each): ${spec.listKeys.join(', ')}.`
+    ? '\nThese fields must be JSON arrays of short strings (one item each): ' + spec.listKeys.join(', ') + '.'
     : ''
-  return `${SYSTEM_BASE}
-
-${LANGUAGE_LINE[language] ?? LANGUAGE_LINE.en}
-
-${spec.instruction}
-
-Return ONLY one JSON object with EXACTLY these fields and no others. Each value is a short string${listNote}.
-Fields:
-${fieldList}
-Also include "outputType": "${spec.outputType}". Do not include any key not listed above.`
+  const lengthHint = spec.outputType === 'miraai_reset_report' ? 'Each value may be a full paragraph of several sentences.' : 'Each value is a short string.'
+  return SYSTEM_BASE + '\n\n' + (LANGUAGE_LINE[language] ?? LANGUAGE_LINE.en) + '\n\n' + spec.instruction + '\n\n' +
+         'Return ONLY one JSON object with EXACTLY these fields and no others. ' + lengthHint + listNote + '.\n' +
+         'Fields:\n' + fieldList + '\n' +
+         'Also include "outputType": "' + spec.outputType + '". Do not include any key not listed above.'
 }
 
 /**

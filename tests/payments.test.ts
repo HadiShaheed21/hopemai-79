@@ -212,6 +212,7 @@ const routePaths = [
   D('app/api/payments/create-order/route'),
   D('app/api/payments/verify/route'),
   D('app/api/payments/webhook/route'),
+  D('app/api/payments/status/route'),
   D('app/api/reflection/route'),
 ]
 
@@ -230,7 +231,12 @@ before(() => {
   moduleRef['_load'] = patchedLoad
 })
 
+let _entitledActive = false
+let _entitledPaymentId: string | null = null
+
 beforeEach(() => {
+  _entitledActive = false
+  _entitledPaymentId = null
   mocks.clear()
   for (const p of routePaths) {
     // require.cache keys include the emitted extension.
@@ -549,9 +555,89 @@ test('duplicate webhook events are idempotent (200 each)', async () => {
   assert.equal(second.status, 200)
 })
 
-// ---------------------------------------------------------------------------
-// Reflection paywall / access tests
-// ---------------------------------------------------------------------------
+// ---- Delayed-verification / webhook-only grant (access after browser closes) ----
+// State shared across the stateful entitlement mock so a webhook grant is visible
+// to the status and reflection routes loaded in the same test.
+function statefulEntitlementFactory() {
+  return {
+    async getEntitlement() {
+      return _entitledActive ? { active: true, razorpay_payment_id: _entitledPaymentId } : null
+    },
+    async isEntitled() {
+      return _entitledActive
+    },
+    async grantEntitlement(args: any) {
+      _entitledActive = true
+      _entitledPaymentId = args?.paymentId ?? null
+      return { active: true }
+    },
+  }
+}
+
+test('successful payment via verify grants access (entitled afterwards)', async () => {
+  _entitledActive = false
+  _entitledPaymentId = null
+  process.env.RAZORPAY_KEY_SECRET = razorpayEnv.RAZORPAY_KEY_SECRET
+  process.env.NEXT_PUBLIC_SUPABASE_URL = supabaseEnv.NEXT_PUBLIC_SUPABASE_URL
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = supabaseEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  mocks.set(D('lib/supabase/server'), () => mockServerModule({ id: 'cust_1' }))
+  mocks.set(D('lib/payments/entitlement'), statefulEntitlementFactory)
+  mocks.set(D('lib/payments/razorpay'), () => ({
+    ...mockRazorpayModule(),
+    verifyCheckoutSignature: () => true,
+    fetchPayment: async () => paymentResult,
+    fetchOrder: async () => orderResult,
+    getPricePaise: () => 7900,
+    getCurrency: () => 'INR',
+    isRazorpayConfigured: () => true,
+  }))
+  const verifyMod = await loadRoute(D('app/api/payments/verify/route'))
+  const vres = await verifyMod.POST(new Request('http://localhost/api/payments/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId: 'order_123', paymentId: 'pay_456', signature: 'x' }),
+  }))
+  assert.equal(vres.status, 200, 'verify succeeds')
+  const vdata = await vres.json() as { entitled?: boolean }
+  assert.equal(vdata.entitled, true, 'verify reports entitled')
+
+  const statusMod = await loadRoute(D('app/api/payments/status/route'))
+  const sres = await statusMod.GET()
+  assert.equal(sres.status, 200)
+  const sdata = await sres.json() as { entitled?: boolean }
+  assert.equal(sdata.entitled, true, 'status shows entitled after verify')
+})
+
+test('delayed verification: webhook grants access after browser closes (no verify call)', async () => {
+  _entitledActive = false
+  _entitledPaymentId = null
+  process.env.RAZORPAY_WEBHOOK_SECRET = razorpayEnv.RAZORPAY_WEBHOOK_SECRET
+  process.env.NEXT_PUBLIC_SUPABASE_URL = supabaseEnv.NEXT_PUBLIC_SUPABASE_URL
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = supabaseEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  mocks.set(D('lib/supabase/server'), () => mockServerModule({ id: 'cust_1' }))
+  mocks.set(D('lib/payments/entitlement'), statefulEntitlementFactory)
+  mocks.set(D('lib/payments/razorpay'), () => ({
+    ...mockRazorpayModule(),
+    verifyWebhookSignature: () => true,
+    fetchOrder: async () => orderResult,
+    getPricePaise: () => 7900,
+    getCurrency: () => 'INR',
+  }))
+  const webhookMod = await loadRoute(D('app/api/payments/webhook/route'))
+  const payload = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_456', order_id: 'order_123' } } } })
+  const wres = await webhookMod.POST(new Request('http://localhost/api/payments/webhook', {
+    method: 'POST',
+    headers: { 'x-razorpay-signature': 'x' },
+    body: payload,
+  }))
+  assert.equal(wres.status, 200, 'webhook processes successfully')
+
+  const statusMod = await loadRoute(D('app/api/payments/status/route'))
+  const sres = await statusMod.GET()
+  assert.equal(sres.status, 200)
+  const sdata = await sres.json() as { entitled?: boolean }
+  assert.equal(sdata.entitled, true, 'status shows entitled after webhook-only grant')
+})
 
 async function paywalledReflection(isEntitled: boolean) {
   process.env.PAYMENTS_ENFORCE = '1'
@@ -573,6 +659,7 @@ async function paywalledReflection(isEntitled: boolean) {
   })
   return mod.POST(req)
 }
+
 
 test('unentitled user receives 402 when PAYMENTS_ENFORCE is on', async () => {
   const res = await paywalledReflection(false)

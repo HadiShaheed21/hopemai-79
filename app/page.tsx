@@ -146,6 +146,16 @@ function ProgressBar({ day }: { day: number }) {
   return <div className="text-center"><p className="text-xs text-[#376d8d]">Day {day} of 7</p><div className="w-28 h-1.5 rounded-full bg-white/60 mt-2 mx-auto"><div className="h-full rounded-full bg-[#4d92bd] transition-all" style={{ width: `${(day / 7) * 100}%` }} /></div></div>
 }
 
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="report-section">
+      <h2 className="section-heading">{title}</h2>
+      <div className="report-body">{children}</div>
+    </section>
+  )
+}
+
 export default function Home() {
   const [screen, setScreen] = useState<'landing' | 'home' | 'day' | 'result' | 'report' | 'safety'>('landing')
   const [name, setName] = useState('')
@@ -309,7 +319,26 @@ export default function Home() {
     }
   }
 
+
   const report = useMemo(() => [...entries].sort((a, b) => a.day - b.day), [entries])
+  // Reset-report content (Day 7), presented as the premium PDF document.
+  const resetEntry = report.find((e) => e.day === 7)
+  const resetCard = resetEntry?.card ?? []
+  const byKey = (key: string): string => {
+    const v = resetCard.find((b) => b.key === key)?.value
+    return Array.isArray(v) ? v.join(' ') : (v ?? '')
+  }
+  const paragraph = (value: string) => String(value).replace(/\\s+/g, ' ').trim()
+  const reset = paragraph(byKey('myResetInOneSentence'))
+  const landscape = paragraph(byKey('whatINoticed'))
+  const mind = paragraph(byKey('whatMyMindWasDoing'))
+  const brought = paragraph(byKey('whatIBroughtWithMe'))
+  const tried = paragraph(byKey('whatITried'))
+  const noticedFrom = paragraph(byKey('whatINoticedFromTrying'))
+  const hands = paragraph(byKey('whatWasInMyHands'))
+  const ownWords = paragraph(byKey('myOwnWords'))
+  const carry = paragraph(byKey('whatIWantToCarryForward'))
+
   const openAuth = (mode: 'signin' | 'signup') => { setAuthMode(mode); setAuthError(''); setAuthOpen(true) }
 
   const handleAuth = async () => {
@@ -496,20 +525,78 @@ export default function Home() {
   if (screen === 'report') return <Frame overlay={authOverlay}>
     <div className="max-w-2xl mx-auto py-6">
       <button onClick={() => setScreen('home')} className="w-10 h-10 glass rounded-full flex items-center justify-center"><ArrowLeft size={18} /></button>
-      <p className="eyebrow mt-10">MIRAAI by HOPEMO AI \u00b7 A personal reflection</p>
-      <h1 className="serif text-5xl mt-4">My 7-Day Reset</h1>
-      <p className="text-[#4d6e82] mt-4">A record of the moments you chose to save.</p>
-      {report.length ? <div className="grid gap-4 mt-9">
-        {report.map(entry => <article key={entry.day} className="glass rounded-3xl p-7">
+      <p className="eyebrow mt-10">MIRAAI by HOPEMO AI \u00b7 Your 7-Day Reset</p>
+      <h1 className="serif text-5xl mt-4">My MIRAAI Reset Report</h1>
+      <p className="text-[#4d6e82] mt-4 leading-relaxed">A personal reflection drawn from your seven-day journey — written from what you actually shared, not a summary of what you already knew.</p>
+      <div className="mt-8 report-doc">
+        <p className="eyebrow mb-3">What\u2019s inside</p>
+        <ol className="list-inside list-decimal text-sm text-[#376d8d] space-y-1">
+          <li>Priority summary</li>
+          <li>The emotional landscape</li>
+          <li>Patterns across seven days</li>
+          <li>What made things harder</li>
+          <li>Strengths, needs and resources</li>
+          <li>Changes across the seven days</li>
+          <li>What could help going forward</li>
+          <li>Closing reflection</li>
+        </ol>
+        <div className="mt-6 report-priority-summary">
+          <p className="report-eyebrow">Priority summary</p>
+          <ul className="report-body space-y-2">
+            <li><strong>Main themes:</strong> {landscape}</li>
+            <li><strong>Most significant recurring pattern:</strong> {mind}</li>
+            <li><strong>Most useful area to explore next:</strong> {hands}</li>
+            <li><strong>One practical starting point:</strong> {carry}</li>
+          </ul>
+        </div>
+        <div className="mt-8 grid gap-8 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <p className="serif text-5xl mt-1 leading-[1.15]">{reset}</p>
+            <p className="text-[#4d6e82] mt-3 leading-relaxed">This report is written in the third person, from the whole of your seven-day journey, and is grounded only in what you chose to share.</p>
+          </div>
+        </div>
+        <div className="mt-8 space-y-7">
+          <Section title="The emotional landscape">{landscape}</Section>
+          <Section title="What my mind was doing">{mind}</Section>
+          <Section title="Patterns across seven days">
+            {brought}
+            <p className="mt-3 text-[#183d59] leading-relaxed">{tried}</p>
+            <p className="mt-3 text-[#183d59] leading-relaxed">{noticedFrom}</p>
+          </Section>
+          <Section title="What became clearer">
+            {carry}
+          </Section>
+          <Section title="Strengths, needs and resources">
+            <p className="text-[#183d59] leading-relaxed">{hands}</p>
+            <p className="mt-3 text-[#183d59] leading-relaxed">{ownWords}</p>
+          </Section>
+          <Section title="Changes across the seven days">
+          <p className="text-[#183d59] leading-relaxed">{mind}</p>
+          <p className="mt-3 text-[#183d59] leading-relaxed">{carry}</p>
+          <p className="mt-3 text-[#183d59] leading-relaxed">{reset}</p>
+        </Section>
+        <Section title="What could help going forward">
+          <p className="text-[#183d59] leading-relaxed">{carry}</p>
+          <p className="mt-3 text-[#183d59] leading-relaxed report-body-text--question">What is the smallest next step you feel ready to take this week?</p>
+        </Section>
+          <Section title="My reset in one sentence">
+            <p className="text-[#183d59] leading-relaxed">{reset}</p>
+          </Section>
+        </div>
+        <div className="mt-10 border-t border-[#e2e8f0] pt-8">
+          <p className="serif text-2xl text-[#18334b]">Thank you for giving this week your attention.</p>
+          <p className="text-[#4d6e82] mt-3 leading-relaxed">This reflection is a record of your own words and choices. It is not a diagnosis, and it is not a substitute for professional support when you need it. If anything you read felt heavy, or if you want to talk it through, reach out to someone you trust.</p>
+        </div>
+      </div>
+      {report.length ? <div className="mt-9 grid gap-4">
+        {report.map(entry => entry.day === 7 ? null : <article key={entry.day} className="glass rounded-3xl p-7">
           <p className="eyebrow">Day {entry.day} \u00b7 {entry.title}</p>
           {entry.card && entry.card.length ? <div className="mt-3">{entry.card.map(b => <div key={b.key} className="mt-3.5"><p className="text-xs tracking-wide text-[#376d8d]">{b.label}</p>{Array.isArray(b.value) ? <ul className="mt-1 space-y-1">{b.value.map((v, i) => <li key={i} className="text-[#183d59] leading-relaxed">\u00b7 {v}</li>)}</ul> : <p className="text-[#183d59] leading-relaxed mt-1">{b.value}</p>}</div>)}</div>
             : <><p className="serif text-2xl mt-3">{entry.choice || 'Your own words'}</p><p className="text-[#4d6e82] leading-relaxed mt-3">{entry.reflection}</p></>}
           {entry.reminder && <p className="text-sm mt-5 pt-4 border-t border-white/70">{entry.reminder}</p>}
         </article>)}
       </div> : <div className="glass rounded-3xl p-7 mt-8">Your saved reflections will appear here as you complete each day.</div>}
-      <div className="mt-7">{report.length > 0 && <Button soft onClick={() => window.print()}><Download size={16} className="inline mr-1" />Download this report</Button>}</div>
+      <div className="mt-7 no-print">{report.length > 0 && <Button soft onClick={() => window.print()}><Download size={16} className="inline mr-1" />Download this report</Button>}</div>
     </div>
   </Frame>
-
-  return null
 }

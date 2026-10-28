@@ -5,12 +5,12 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { SPECS, detectLanguage, buildSystemPrompt, NOT_ENOUGH } from '../lib/ai/prompts'
-import { validateAiResponse, fallbackResult } from '../lib/ai/validate'
+import { SPECS, detectLanguage, buildSystemPrompt, buildUserPrompt, NOT_ENOUGH } from '../lib/ai/prompts'
+import { validateAiResponse, fallbackResult, inspectPriorities, trimIncompletePriorities } from '../lib/ai/validate'
 import { containsCrisisLanguage, safetyResult } from '../lib/ai/safety'
 import { sanitizeRequest, InputError } from '../lib/ai/service'
 import { getProvider, ProviderError } from '../lib/ai/provider'
-import type { ReflectionRequest } from '../lib/ai/types'
+import type { ReflectionRequest, HistoryItem } from '../lib/ai/types'
 
 const arr = (v: unknown) => (Array.isArray(v) ? v as string[] : [])
 const txt = (v: unknown) => (typeof v === 'string' ? v : Array.isArray(v) ? v.join(' / ') : '')
@@ -176,4 +176,145 @@ test('Provider is unavailable without a key -> ProviderError (no crash)', () => 
   } finally {
     if (prev !== undefined) process.env.GROQ_API_KEY = prev
   }
+})
+
+// ---- E. Priority completeness validation (Day 7) ----
+const threeCompleteCarry = `I keep juggling everything. A little space would help. What could help going forward Priority 1 - Area to explore: workload | Why it matters: deadlines | Suggested adjustment: schedule | First small step: pick one task | Reflection question: which task feels urgent? Priority 2 - Area to explore: rest | Why it matters: no space | Suggested adjustment: breaks | First small step: 5-min walk | Reflection question: did energy change? Priority 3 - Area to explore: self-compassion | Why it matters: harsh talk | Suggested adjustment: reframe | First small step: write kind sentence | Reflection question: how does it feel?`
+
+test('inspectPriorities: three complete priorities', () => {
+  const r = inspectPriorities(threeCompleteCarry)
+  assert.equal(r.count, 3)
+  assert.equal(r.complete, 3)
+  assert.equal(r.incomplete, 0)
+  assert.deepEqual(r.missingElements, [])
+})
+
+test('inspectPriorities: priority missing Reflection question is detected', () => {
+  const text = 'Priority 1 - Area to explore: x | Why it matters: y | Suggested adjustment: z | First small step: a'
+  const r = inspectPriorities(text)
+  assert.equal(r.count, 1)
+  assert.equal(r.complete, 0)
+  assert.ok(r.missingElements.includes('Reflection question:'))
+})
+
+test('inspectPriorities: priority missing First small step is detected', () => {
+  const text = 'Priority 1 - Area to explore: x | Why it matters: y | Suggested adjustment: z | Reflection question: q'
+  const r = inspectPriorities(text)
+  assert.equal(r.count, 1)
+  assert.equal(r.complete, 0)
+  assert.ok(r.missingElements.includes('First small step:'))
+})
+
+test('inspectPriorities: malformed text with no Priority keyword returns zero', () => {
+  const r = inspectPriorities('just a plain summary with no priorities')
+  assert.equal(r.count, 0)
+  assert.equal(r.complete, 0)
+})
+
+test('inspectPriorities: fewer than three complete priorities is allowed', () => {
+  const text = 'Priority 1 - Area to explore: x | Why it matters: y | Suggested adjustment: z | First small step: a | Reflection question: q'
+  const r = inspectPriorities(text)
+  assert.equal(r.count, 1)
+  assert.equal(r.complete, 1)
+})
+
+test('trimIncompletePriorities: trims a trailing incomplete priority', () => {
+  const text = 'Summary. Priority 1 - Area to explore: x | Why it matters: y | Suggested adjustment: z | First small step: a | Reflection question: q Priority 2 - Area to explore: x | Why it matters: y | Suggested adjustment: z'
+  const out = trimIncompletePriorities(text)
+  assert.ok(out.includes('Priority 1'))
+  assert.ok(!out.includes('Priority 2'))
+  assert.ok(out.startsWith('Summary.'))
+})
+
+test('trimIncompletePriorities: keeps later complete priorities when an earlier one is incomplete', () => {
+  const text = 'Summary. Priority 1 - Area to explore: x | Why it matters: y Priority 2 - Area to explore: a | Why it matters: b | Suggested adjustment: c | First small step: d | Reflection question: e'
+  const out = trimIncompletePriorities(text)
+  assert.ok(out.includes('Priority 2'))
+  assert.ok(!out.includes('Priority 1'))
+  assert.ok(out.startsWith('Summary.'))
+})
+test('trimIncompletePriorities: leaves text unchanged when no priorities', () => {
+  const text = 'just a plain summary'
+  assert.equal(trimIncompletePriorities(text), text)
+})
+
+
+test('Day 7 validation: trims incomplete trailing priority and keeps all nine fields', () => {
+  const raw = goodDay(7)
+  raw.whatIWantToCarryForward = 'Summary text. Priority 1 - Area to explore: a | Why it matters: b | Suggested adjustment: c | First small step: d | Reflection question: e Priority 2 - Area to explore: f | Why it matters: g | Suggested adjustment: h'
+  const r = validateAiResponse(7, raw, { day: 7, response: '' })
+  assert.ok(r, 'should validate (one complete priority)')
+  assert.equal(r!.blocks.length, 9)
+  const carry = r!.blocks.find(b => b.key === 'whatIWantToCarryForward')?.value as string
+  assert.ok(carry.includes('Priority 1'))
+  assert.ok(!carry.includes('Priority 2'))
+})
+
+test('Day 7 validation: rejects when priority block is present but has zero complete priorities', () => {
+  const raw = goodDay(7)
+  raw.whatIWantToCarryForward = 'Summary. Priority 1 - Area to explore: a | Why it matters: b'
+  const r = validateAiResponse(7, raw, { day: 7, response: '' })
+  assert.equal(r, null, 'should reject malformed priority block')
+})
+
+test('Day 7 validation: accepts field with no priority entries', () => {
+  const raw = goodDay(7)
+  raw.whatIWantToCarryForward = 'Just a plain summary with no priorities.'
+  const r = validateAiResponse(7, raw, { day: 7, response: '' })
+  assert.ok(r, 'should validate')
+  assert.equal(r!.blocks.length, 9)
+})
+
+
+// ---- B3. Realistic seven-day journey fixture (no live AI) ----
+// Representative content exercising recurring concern, trigger, early-vs-late
+// difference, strength, unresolved concern, and a thin evidence area.
+const realisticDay7 = {
+  outputType: 'miraai_reset_report',
+  whatIBroughtWithMe: 'Across the week the person returned to competing responsibilities: work deadlines, family expectations, and a recurring worry about letting people down. The first days were mostly about pressure and not having enough space.',
+  whatINoticed: 'The person named feeling overwhelmed and stretched, especially when several demands arrived at once. A possible trigger appears to be situations where multiple responsibilities compete for attention. By the later days the language shifted toward wanting clarity and one small next step rather than just more effort.',
+  whatMyMindWasDoing: 'Early responses focused on pressure and not knowing where to start. Later responses show the person sorting what is in their hands from what is not. One consistent pattern is that the person postpones their own emotional needs while continuing to manage daily responsibilities. Whether this pattern has actually changed cannot be established from the available responses.',
+  whatWasInMyHands: 'The person sorted their own control in Day 3: some things to act on, some outside their control, some not now. They demonstrated a strength in pausing and in naming what they needed. A possible gap is that their stated need for rest did not always match the amount of rest they described taking.',
+  whatITried: 'Day 4: a small move toward one manageable task. Day 5: a breathing pause, after which they reported no real change. Day 6: a kinder reminder compared with their first self-talk. A skip was not recorded, but one day was thin.',
+  whatINoticedFromTrying: 'Day 5: no real change. The Day 4 move did not clearly change how they felt, but it gave them something concrete to hold. The Day 6 comparison showed they were harsher with themselves than they would have been with a friend.',
+  myOwnWords: '"I keep juggling everything and hoping no one notices." "A little space would help."',
+  whatIWantToCarryForward: 'One thing at a time. A small protected period for personal needs. Priority 1 - Area to explore: competing responsibilities. Why it matters: the responses repeatedly mention difficulty making time for personal needs while managing several demands at once. Suggested adjustment: identify one responsibility that can be postponed, simplified, or discussed with someone. First small step: choose one task to set aside for a day and notice how it feels. Reflection question: which demand felt most urgent, and which one could wait?',
+  myResetInOneSentence: 'This week I noticed that when several things compete for my attention, choosing one small next step gives me something concrete to work with.',
+}
+
+test('Realistic seven-day fixture validates and preserves all nine Day 7 fields', () => {
+  const req: ReflectionRequest = { day: 7, response: 'x', fields: {}, history: [] }
+  const r = validateAiResponse(7, realisticDay7, req)
+  assert.ok(r, 'fixture should validate')
+  assert.equal(r!.blocks.length, 9, 'nine blocks preserved')
+  for (const key of EXPECTED[7]) {
+    const block = r!.blocks.find(b => b.key === key)
+    assert.ok(block, `field present: ${key}`)
+    const v = typeof block!.value === 'string' ? block!.value : JSON.stringify(block!.value)
+    assert.ok(v.length > 0, `field non-empty: ${key}`)
+  }
+  assert.equal(r!.language, 'en')
+})
+
+test('Realistic seven-day fixture: buildUserPrompt includes the whole journey as context', () => {
+  const history: HistoryItem[] = [
+    { day: 1, title: 'My First Reset', choice: 'Too much going on', response: 'exams', fields: { takingSpace: 'focus' } },
+    { day: 2, title: 'My Feeling Map', choice: '', response: 'friend silent', fields: { situation: 'they did not reply', feeling: 'rejected', thought: 'I did something wrong' } },
+    { day: 3, title: 'My Space of Control', choice: '', response: '', fields: { canActOn: 'send a message; start task', outsideMyControl: 'what they think', notNow: 'reply' } },
+    { day: 4, title: 'My Next Small Move', choice: 'not picked yet', response: 'focus', fields: { need: 'focus', options: 'open the file, write one line', chosenOption: 'not picked yet' } },
+    { day: 5, title: 'My Pause Moment', choice: 'Breathing Pause', response: 'no real change', fields: { noticed: 'no real change' } },
+    { day: 6, title: 'My Kinder Reminder', choice: '', response: 'messed up', fields: { situation: 'messed up', myFirstResponse: 'I always ruin things', whatIdSayToAFriend: 'anyone can slip' } },
+  ]
+  const prompt = buildUserPrompt({ day: 7, response: 'x', history }, SPECS[7])
+  assert.match(prompt, /Journey so far/, 'includes journey digest')
+  assert.match(prompt, /Day 1/, 'includes Day 1')
+  assert.match(prompt, /Day 6/, 'includes Day 6')
+  assert.match(prompt, /Use the journey above as the ONLY source for the report/, 'Day 7 grounding instruction present')
+})
+
+test('Realistic seven-day fixture: fallback preserves nine fields and uses NOT_ENOUGH for thin input', () => {
+  const fb = fallbackResult({ day: 7, response: '', fields: {}, history: [] })
+  assert.equal(fb.blocks.length, 9, 'fallback keeps nine blocks')
+  assert.ok(fb.blocks.some(b => b.value === NOT_ENOUGH), 'fallback uses NOT_ENOUGH for thin input')
+  assert.equal(fb.language, 'en')
 })

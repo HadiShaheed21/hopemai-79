@@ -1,6 +1,57 @@
 import { NOT_ENOUGH, SPECS } from './prompts'
 import type { DaySpec, HistoryItem, ReflectionBlock, ReflectionRequest, ReflectionResult } from './types'
 
+const PRIORITY_ELEMENTS = ['Area to explore:', 'Why it matters:', 'Suggested adjustment:', 'First small step:', 'Reflection question:']
+
+export type PriorityInspection = {
+  count: number
+  complete: number
+  incomplete: number
+  missingElements: string[]
+}
+
+/** Inspect "Priority N" entries in a Day 7 "whatIWantToCarryForward" string. */
+export function inspectPriorities(text: string): PriorityInspection {
+  const re = /Priority\s*\d+/g
+  const indices: number[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) indices.push(m.index)
+  if (indices.length === 0) return { count: 0, complete: 0, incomplete: 0, missingElements: [] }
+  indices.push(text.length)
+  const chunks: string[] = []
+  for (let i = 0; i < indices.length - 1; i++) {
+    chunks.push(text.slice(indices[i], indices[i + 1]))
+  }
+  let complete = 0
+  const missingSet = new Set<string>()
+  for (const c of chunks) {
+    const missing = PRIORITY_ELEMENTS.filter(e => !c.includes(e))
+    if (missing.length === 0) complete++
+    else missing.forEach(e => missingSet.add(e))
+  }
+  return { count: indices.length - 1, complete, incomplete: indices.length - 1 - complete, missingElements: [...missingSet] }
+}
+
+/** Trim trailing incomplete priority entries, keeping only complete ones. */
+export function trimIncompletePriorities(text: string): string {
+  const re = /Priority\s*\d+/g
+  const indices: number[] = []
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) indices.push(m.index)
+  if (indices.length === 0) return text
+  indices.push(text.length)
+  const prefix = text.slice(0, indices[0]).trim()
+  const completeChunks: string[] = []
+  for (let i = 0; i < indices.length - 1; i++) {
+    const chunk = text.slice(indices[i], indices[i + 1]).trim()
+    const missing = PRIORITY_ELEMENTS.filter(e => !chunk.includes(e))
+    if (missing.length === 0) completeChunks.push(chunk)
+    // skip incomplete entries rather than stopping, so later complete ones are preserved
+  }
+  const parts = [prefix, ...completeChunks].filter(Boolean)
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
 const capText = (value: unknown, max = 600) =>
   typeof value === 'string' ? value.trim().replace(/\s+/g, ' ').slice(0, max) : ''
 
@@ -47,6 +98,24 @@ export function validateAiResponse(
     }
   }
   if (missing) return null
+
+  // Day 7: ensure "whatIWantToCarryForward" priorities are complete. Trim any
+  // trailing incomplete priority entries so only complete, well-formed ones
+  // remain. Reject the whole response only when the priority block is present
+  // but contains NO complete priority (malformed) — the caller retries once.
+  if (day === 7) {
+    const carryIdx = blocks.findIndex(b => b.key === 'whatIWantToCarryForward')
+    if (carryIdx >= 0 && typeof blocks[carryIdx].value === 'string') {
+      const original = blocks[carryIdx].value as string
+      const inspection = inspectPriorities(original)
+      if (inspection.count > 0 && inspection.complete === 0) {
+        return null
+      }
+      if (inspection.incomplete > 0) {
+        blocks[carryIdx].value = trimIncompletePriorities(original)
+      }
+    }
+  }
 
   const byKey = Object.fromEntries(blocks.map(b => [b.key, b.value]))
   let reflection = typeof byKey.reflection === 'string' ? byKey.reflection : ''

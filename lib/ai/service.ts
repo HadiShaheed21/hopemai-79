@@ -121,7 +121,9 @@ export async function generateReflection(
         user:
           attempt === 1
             ? user
-            : `${user}\n\nYour previous reply was incomplete or off-shape. Return ONLY the exact JSON object requested, with every field filled from the data above.`,
+            : request.day === 7
+              ? `${user}\n\nYour previous reply was incomplete or off-shape. Return ONLY the exact JSON object requested, with every field filled from the data above. For the whatIWantToCarryForward field, each "Priority N" entry must contain ALL five elements: Area to explore, Why it matters, Suggested adjustment, First small step, Reflection question. Complete each priority fully before starting the next. Do not leave a priority unfinished. Do not truncate. Do not invent priorities.`
+              : `${user}\n\nYour previous reply was incomplete or off-shape. Return ONLY the exact JSON object requested, with every field filled from the data above.`,
         temperature: attempt === 1 ? 0.55 : 0.3,
         maxTokens,
       })
